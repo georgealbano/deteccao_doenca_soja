@@ -2,6 +2,7 @@
 """## importaçoes"""
 from PIL import Image
 import numpy as np
+from matplotlib import pyplot as plt
 import seaborn as sns
 import torch
 from torch import nn, optim
@@ -13,12 +14,9 @@ from sklearn.metrics import *
 import os
 torch.__version__
 
-"""## geração fixa dos valores iniciais de peso"""
-
+# geração fixa dos valores iniciais de peso
 torch.manual_seed(123)
 np.random.seed(123)
-
-
 
 #Carregamento banco de imagens
 data_test = '/home/all/Documentos/projetos_ia/cnn/doenca_soja/datasetSoja/test_dataset'
@@ -50,25 +48,12 @@ test_loader = data.DataLoader(test_dataset, batch_size=32, shuffle=True)
 
 # """## Tentativa de plotar grafico com os arquivos do dataset"""
 
-def graph_plot(data):
-  contagem_arquivos = {}
 
-  for raiz, diretorios, arquivos in os.walk(data_train):
-     for diretorio in diretorios:
-       caminho_completo = os.path.join(raiz, diretorio)
-       numero_arquivos = len(os.listdir(caminho_completo))
-       contagem_arquivos[diretorio] = numero_arquivos
+"""# Construçao do modelo
 
-  print(contagem_arquivos)
+## Classificador com valor de 32"""
 
-  sns.countplot(contagem_arquivos, x = contagem_arquivos.values())
-
-"""# Construçao do modelo"""
-
-
-"""## Classificador com valor de 32"""
-
-classificador2 = nn.Sequential(
+classifier = nn.Sequential(
     # Definição da primeira camada densa
     # in_channels -> numero de canais baseado se a imagem é colorida ou não /// 12288 pixels (roslução * resolução * n de canais)
     #out_channels -> trabalhando com 32 filtros // baseado no numero de caracteristicas que quero determinar
@@ -129,14 +114,14 @@ classificador2 = nn.Sequential(
 #definição da função de erro de acordo com nosso problema de classificação // pesquisar para problemas nao binarios
 criterion = nn.NLLLoss()
 #definiçao do otimizador, cria uma instancia com o meu gradiente e atualiza a cada iteração da minha rede neural
-optimizer = optim.Adam(classificador2.parameters())
+optimizer = optim.Adam(classifier.parameters())
 
-"""# Treinamento do modelo"""
+# aceleranddo o modelo com GPU 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 
 """## Classificador"""
-classificador2.to(device)
+classifier.to(device)
 
 """## Treinamento do modelo"""
 def training_loop(loader, epoch):
@@ -156,7 +141,7 @@ def training_loop(loader, epoch):
     optimizer.zero_grad()
 
     #Classificação feita pelo algoritimo, passando minhas caracteristicas para minha rede neural
-    outputs = classificador2(inputs)
+    outputs = classifier(inputs)
     # print(f'Esses são os outputs! \n {outputs} \n')
 
     top_p, top_class = outputs.topk(k = 1, dim = 1)
@@ -201,10 +186,7 @@ def training_loop(loader, epoch):
   print('\rÉPOCA {:3d} - FINALIZADA: perda {:.5f}  - precisao {:.5f}'.format(epoch + 1, running_loss/len(loader), running_accuracy/len(loader)))
 
 
-    
-
-
-def classificar_imagem(fname):
+def image_class(fname):
   imagem_teste = Image.open(data_test + '/' + fname)
   
   imagem_teste.show()
@@ -215,9 +197,9 @@ def classificar_imagem(fname):
   imagem_teste = imagem_teste.transpose(2, 0, 1)
   imagem_teste = torch.tensor(imagem_teste, dtype=torch.float).view(-1, *imagem_teste.shape)
 
-  classificador2.eval()
+  classifier.eval()
   imagem_teste = imagem_teste.to(device)
-  output = classificador2.forward(imagem_teste)
+  output = classifier.forward(imagem_teste)
   top_p, top_class = output.topk(k = 1, dim = 1)
   classe = top_class.item()
 
@@ -228,18 +210,31 @@ def classificar_imagem(fname):
 
   return idx_to_class[classe]
 
+def graph_plot(data):
+  contagem_arquivos = {}
 
+  for raiz, diretorios, arquivos in os.walk(data_train):
+     for diretorio in diretorios:
+       caminho_completo = os.path.join(raiz, diretorio)
+       numero_arquivos = len(os.listdir(caminho_completo))
+       contagem_arquivos[diretorio] = numero_arquivos
 
+  print(contagem_arquivos.keys())
 
-
+  grafico= sns.countplot(contagem_arquivos, x = contagem_arquivos.values())
+ 
+  print(grafico)
+  # plt.close('all') 
+  # matplotlib.use('QtAgg')
+  plt.show()
 if __name__== '__main__':
   # ephocas que melhor se adaptaram 20
   for epoch in range(1):
     print('Treinando.....')
     training_loop(train_loader, epoch)
-    classificador2.eval()
+    classifier.eval()
     print('Validando...')
     training_loop(test_loader, epoch)
-    classificador2.train()
-  # classificar_imagem('brown_spot/BS_55.bmp')
-  # graph_plot(data_train)
+    classifier.train()
+  image_class('brown_spot/BS_55.bmp')
+ 
