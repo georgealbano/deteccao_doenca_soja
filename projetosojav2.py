@@ -1,10 +1,11 @@
 
 """## importaçoes"""
-
+from PIL import Image
 import numpy as np
 import seaborn as sns
-from torch import nn, optim
 import torch
+from torch import nn, optim
+from torch.utils import data
 from torchvision import datasets
 from torchvision.transforms import v2
 import torch.nn.functional as F
@@ -29,37 +30,38 @@ transform_dir_train = v2.Compose(
        v2.RandomHorizontalFlip(),
        v2.RandomAffine(degrees= 0, translate=(0,0.07), shear= 0.2, scale=(1, 1.2)),
        #verificar erro do compose
-       v2.ToTensor()
+       v2.ToImage(), 
+       v2.ToDtype(torch.float32, scale=True)
        ]
 )
 transform_dir_test = v2.Compose(
       [v2.Resize([64,64]),
-       v2.ToTensor()
+       v2.ToImage(), 
+       v2.ToDtype(torch.float32, scale=True)
        ]
 )
 
 # "Compilando" o data set no formato padrao pytorch
 train_dataset = datasets.ImageFolder(data_train, transform_dir_train)
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
-
+train_loader = data.DataLoader(train_dataset, batch_size=32, shuffle=True)
 
 test_dataset = datasets.ImageFolder(data_test, transform_dir_test)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
+test_loader = data.DataLoader(test_dataset, batch_size=32, shuffle=True)
 
 # """## Tentativa de plotar grafico com os arquivos do dataset"""
 
+def graph_plot(data):
+  contagem_arquivos = {}
 
-# contagem_arquivos = {}
+  for raiz, diretorios, arquivos in os.walk(data_train):
+     for diretorio in diretorios:
+       caminho_completo = os.path.join(raiz, diretorio)
+       numero_arquivos = len(os.listdir(caminho_completo))
+       contagem_arquivos[diretorio] = numero_arquivos
 
-# for raiz, diretorios, arquivos in os.walk(data_train):
-#     for diretorio in diretorios:
-#       caminho_completo = os.path.join(raiz, diretorio)
-#       numero_arquivos = len(os.listdir(caminho_completo))
-#       contagem_arquivos[diretorio] = numero_arquivos
+  print(contagem_arquivos)
 
-# print(contagem_arquivos)
-
-# sns.countplot(contagem_arquivos, x = contagem_arquivos.values())
+  sns.countplot(contagem_arquivos, x = contagem_arquivos.values())
 
 """# Construçao do modelo"""
 
@@ -127,22 +129,16 @@ classificador2 = nn.Sequential(
 #definição da função de erro de acordo com nosso problema de classificação // pesquisar para problemas nao binarios
 criterion = nn.NLLLoss()
 #definiçao do otimizador, cria uma instancia com o meu gradiente e atualiza a cada iteração da minha rede neural
-
 optimizer = optim.Adam(classificador2.parameters())
 
 """# Treinamento do modelo"""
-
-
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 
 """## Classificador"""
 classificador2.to(device)
 
-
-
 """## Treinamento do modelo"""
-
 def training_loop(loader, epoch):
   running_loss = 0.
   running_accuracy = 0.
@@ -206,8 +202,8 @@ def training_loop(loader, epoch):
 
 
     
-from PIL import Image
-import matplotlib.pyplot as plt
+
+
 def classificar_imagem(fname):
   imagem_teste = Image.open(data_test + '/' + fname)
   
@@ -237,6 +233,7 @@ def classificar_imagem(fname):
 
 
 if __name__== '__main__':
+  # ephocas que melhor se adaptaram 20
   for epoch in range(1):
     print('Treinando.....')
     training_loop(train_loader, epoch)
@@ -244,4 +241,5 @@ if __name__== '__main__':
     print('Validando...')
     training_loop(test_loader, epoch)
     classificador2.train()
-  classificar_imagem('brown_spot/BS_55.bmp')
+  # classificar_imagem('brown_spot/BS_55.bmp')
+  # graph_plot(data_train)
